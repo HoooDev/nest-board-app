@@ -15,16 +15,22 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.BoardsService = void 0;
 const common_1 = require("@nestjs/common");
 const typeorm_1 = require("@nestjs/typeorm");
+const get_user_decorator_1 = require("../auth/get-user.decorator");
+const user_entity_1 = require("../auth/user.entity");
+const board_entity_1 = require("./board.entity");
 const board_repository_1 = require("./board.repository");
 let BoardsService = class BoardsService {
     constructor(boardRepository) {
         this.boardRepository = boardRepository;
     }
-    createBoard(createBoardDto) {
-        return this.boardRepository.createBoard(createBoardDto);
+    createBoard(createBoardDto, user) {
+        return this.boardRepository.createBoard(createBoardDto, user);
     }
-    async getAllBoards() {
-        return this.boardRepository.find();
+    async getAllBoards(user) {
+        const query = this.boardRepository.createQueryBuilder('board');
+        query.where('board.userId = :userId', { userId: user.id });
+        const boards = await query.getMany();
+        return boards;
     }
     async getBoardById(id) {
         const found = await this.boardRepository.findOneBy({ id });
@@ -33,8 +39,14 @@ let BoardsService = class BoardsService {
         }
         return found;
     }
-    async deleteBoard(id) {
-        const result = await this.boardRepository.delete(id);
+    async deleteBoard(id, user) {
+        const result = await this.boardRepository
+            .createQueryBuilder('board')
+            .delete()
+            .from(board_entity_1.Board)
+            .where('userId = :userId', { userId: user.id })
+            .andWhere('id = :id', { id })
+            .execute();
         if (result.affected == 0) {
             throw new common_1.NotFoundException(`Can't find Board with id ${id}`);
         }
@@ -46,6 +58,12 @@ let BoardsService = class BoardsService {
         return board;
     }
 };
+__decorate([
+    __param(0, (0, get_user_decorator_1.GetUser)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [user_entity_1.User]),
+    __metadata("design:returntype", Promise)
+], BoardsService.prototype, "getAllBoards", null);
 BoardsService = __decorate([
     (0, common_1.Injectable)(),
     __param(0, (0, typeorm_1.InjectRepository)(board_repository_1.BoardRepository)),
